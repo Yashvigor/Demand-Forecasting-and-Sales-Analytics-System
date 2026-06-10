@@ -28,10 +28,15 @@ def evaluate_forecasts(df: pd.DataFrame, actual_col: str = 'Quantity', test_days
     df = df.copy()
     df['Order_Date'] = pd.to_datetime(df['Order_Date'])
     
-    # Filter to test period
-    max_date = df['Order_Date'].max()
+    # Filter to historical rows to find the correct split date
+    hist_df = df[df[actual_col].notna() & (df[actual_col] > 0)]
+    if len(hist_df) == 0:
+        hist_df = df
+        
+    max_date = hist_df['Order_Date'].max()
     split_date = max_date - pd.Timedelta(days=test_days)
-    test_df = df[df['Order_Date'] > split_date].copy()
+    
+    test_df = df[(df['Order_Date'] > split_date) & (df['Order_Date'] <= max_date)].copy()
     
     # Drop rows that don't have predictions from both models
     test_df = test_df.dropna(subset=[actual_col, 'Prophet_Forecast', 'XGBoost_Forecast'])

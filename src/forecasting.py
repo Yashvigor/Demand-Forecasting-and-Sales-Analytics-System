@@ -6,45 +6,88 @@ from sklearn.preprocessing import LabelEncoder
 import warnings
 warnings.filterwarnings('ignore')
 
-def run_prophet_forecast(df: pd.DataFrame, date_col: str = 'Order_Date', target_col: str = 'Quantity', forecast_horizon: int = 90) -> tuple[pd.DataFrame, dict]:
+def run_prophet_forecast(df: pd.DataFrame, date_col: str = 'Order_Date', target_col: str = 'Quantity', test_days: int = 90, forecast_horizon: int = 90) -> tuple[pd.DataFrame, dict]:
     """
     Fits a Prophet model for each unique Product_Code & Region combination.
+    To avoid evaluation bias, we:
+      1. Train an evaluation model on data excluding the last test_days.
+      2. Generate out-of-sample predictions on the test set for evaluation.
+      3. Train a final model on the entire history to predict forecast_horizon days into the future.
     Returns:
-      - A dataframe containing predictions for historical and future dates.
-      - A dictionary of fitted Prophet models per group.
+      - A dataframe containing actuals, XGBoost-fair evaluation predictions, and future forecasts.
+      - A dictionary of fitted Prophet models (trained on the full dataset) per group.
     """
     df = df.copy()
+    df[date_col] = pd.to_datetime(df[date_col])
+    
+    # Calculate cutoff for evaluation
+    max_date = df[date_col].max()
+    split_date = max_date - pd.Timedelta(days=test_days)
+    
     groups = df.groupby(['Product_Code', 'Region'])
     
     forecast_results = []
     models = {}
     
-    print(f"Training Prophet models for {len(groups)} series...")
+    print(f"Training Prophet models (with train/test split of {test_days} days) for {len(groups)} series...")
     
     for (prod, region), group_df in groups:
-        # Prepare Prophet dataframe
-        prophet_df = group_df[[date_col, target_col]].rename(columns={date_col: 'ds', target_col: 'y'})
+        group_df = group_df.sort_values(by=date_col).reset_index(drop=True)
         
-        # Fit Prophet model
-        # Enable weekly and yearly seasonality, disable daily seasonality (since we only have daily records)
-        model = Prophet(
+        # 1. Split into train and test for evaluation
+        train_df = group_df[group_df[date_col] <= split_date]
+        
+        # In case a series has no training data, fall back to using all data
+        if len(train_df) == 0:
+            train_df = group_df
+            
+        prophet_train = train_df[[date_col, target_col]].rename(columns={date_col: 'ds', target_col: 'y'})
+        
+        # Fit evaluation model on training split
+        model_eval = Prophet(
             yearly_seasonality=True,
             weekly_seasonality=True,
             daily_seasonality=False,
-            seasonality_mode='multiplicative' # multiplicative seasonality is standard for sales
+            seasonality_mode='multiplicative'
         )
-        model.fit(prophet_df)
+        model_eval.fit(prophet_train)
         
-        # Save model
-        models[(prod, region)] = model
+        # Predict on entire historical dates (both in-sample and out-of-sample)
+        # This gives us fair out-of-sample predictions for the test dates!
+        history_dates = group_df[[date_col]].rename(columns={date_col: 'ds'})
+        eval_forecast = model_eval.predict(history_dates)
         
-        # Create future dataframe for the specified horizon
-        future = model.make_future_dataframe(periods=forecast_horizon, freq='D')
-        forecast = model.predict(future)
+        # 2. Fit final model on the full historical dataset (for future forecasting)
+        prophet_full = group_df[[date_col, target_col]].rename(columns={date_col: 'ds', target_col: 'y'})
+        model_full = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            seasonality_mode='multiplicative'
+        )
+        model_full.fit(prophet_full)
         
+        # Save full model
+        models[(prod, region)] = model_full
+        
+        # Predict into the future
+        future_dates = model_full.make_future_dataframe(periods=forecast_horizon, freq='D')
+        # Only keep future dates (dates after max_date) for the future forecast
+        future_dates = future_dates[future_dates['ds'] > max_date]
+        
+        if len(future_dates) > 0:
+            future_forecast = model_full.predict(future_dates)
+            
+            # Combine historical predictions (from eval model) and future predictions (from full model)
+            combined_forecast = pd.concat([
+                eval_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']],
+                future_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+            ], ignore_index=True)
+        else:
+            combined_forecast = eval_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+            
         # Format output
-        fc_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].copy()
-        fc_df = fc_df.rename(columns={'ds': date_col, 'yhat': 'Prophet_Forecast', 'yhat_lower': 'Prophet_Lower', 'yhat_upper': 'Prophet_Upper'})
+        fc_df = combined_forecast.rename(columns={'ds': date_col, 'yhat': 'Prophet_Forecast', 'yhat_lower': 'Prophet_Lower', 'yhat_upper': 'Prophet_Upper'})
         fc_df['Product_Code'] = prod
         fc_df['Region'] = region
         fc_df['Alloy_Type'] = group_df['Alloy_Type'].iloc[0]
@@ -57,6 +100,7 @@ def run_prophet_forecast(df: pd.DataFrame, date_col: str = 'Order_Date', target_
         
     all_forecasts = pd.concat(forecast_results, ignore_index=True)
     return all_forecasts, models
+
 
 
 def prepare_xgboost_data(df: pd.DataFrame, target_col: str = 'Quantity') -> tuple[pd.DataFrame, list, dict]:

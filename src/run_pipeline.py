@@ -1,10 +1,12 @@
 import os
+import numpy as np
 import pandas as pd
 from data_loader import download_and_map_m5
 from preprocessing import clean_data
 from feature_engineering import generate_all_features
 from forecasting import run_prophet_forecast, run_xgboost_forecast, save_trained_models
 from evaluation import evaluate_forecasts, print_comparison_table
+from generate_pdf_report import build_pdf_report
 
 def run_pipeline():
     # Filepaths
@@ -69,8 +71,34 @@ def run_pipeline():
     combined = df_features.copy()
     combined['Order_Date'] = pd.to_datetime(combined['Order_Date'])
     
-    # Merge Prophet
-    combined = pd.merge(combined, prophet_merge, on=['Order_Date', 'Product_Code', 'Region'], how='left')
+    # Merge Prophet (use outer merge to preserve out-of-sample future forecasts)
+    combined = pd.merge(combined, prophet_merge, on=['Order_Date', 'Product_Code', 'Region'], how='outer')
+    
+    # Post-process merged future rows (interpolate/fill details)
+    # Build maps from historical df_features
+    lookup = df_features[['Product_Code', 'Region', 'Alloy_Type', 'Industry']].drop_duplicates()
+    lookup_alloy = lookup.set_index(['Product_Code', 'Region'])['Alloy_Type'].to_dict()
+    lookup_industry = lookup.set_index(['Product_Code', 'Region'])['Industry'].to_dict()
+    
+    # Find rows representing future forecast (where actual Quantity is NaN)
+    future_mask = combined['Quantity'].isna()
+    if future_mask.any():
+        print(f"Post-processing {future_mask.sum()} future forecast rows...")
+        keys = list(zip(combined['Product_Code'], combined['Region']))
+        combined['Alloy_Type'] = combined['Alloy_Type'].fillna(pd.Series([lookup_alloy.get(k) for k in keys], index=combined.index))
+        combined['Industry'] = combined['Industry'].fillna(pd.Series([lookup_industry.get(k) for k in keys], index=combined.index))
+        
+        future_dates = combined.loc[future_mask, 'Order_Date']
+        combined.loc[future_mask, 'Year'] = future_dates.dt.year
+        combined.loc[future_mask, 'Month'] = future_dates.dt.month
+        combined.loc[future_mask, 'Quarter'] = future_dates.dt.quarter
+        combined.loc[future_mask, 'Week'] = future_dates.dt.isocalendar().week.astype(int)
+        combined.loc[future_mask, 'Day_of_Week'] = future_dates.dt.dayofweek
+        combined.loc[future_mask, 'Is_Weekend'] = (future_dates.dt.dayofweek >= 5).astype(int)
+        
+        # Recompute Month Sin/Cos cyclic features
+        combined.loc[future_mask, 'Month_Sin'] = np.sin(2 * np.pi * combined.loc[future_mask, 'Month'] / 12)
+        combined.loc[future_mask, 'Month_Cos'] = np.cos(2 * np.pi * combined.loc[future_mask, 'Month'] / 12)
     
     # Merge XGBoost
     combined = pd.merge(combined, xgboost_merge, on=['Order_Date', 'Product_Code', 'Region'], how='left')
@@ -93,6 +121,16 @@ def run_pipeline():
     # 7. Generate Actionable Business Insights (Phase 6)
     print("\n--- PHASE 7: BUSINESS INSIGHTS GENERATION ---")
     generate_business_insights(combined, comparison_df, base_dir)
+    
+    # 8. Compile PDF executive report
+    print("\n--- PHASE 8: COMPILING PDF EXECUTIVE REPORT ---")
+    pdf_report_path = os.path.join(base_dir, "reports", "insights.pdf")
+    insights_text_path = os.path.join(base_dir, "reports", "insights.txt")
+    try:
+        build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_report_path)
+        print("Pipeline PDF Report generated successfully.")
+    except Exception as e:
+        print(f"Warning: Failed to compile PDF report: {e}")
     
     print("\n" + "="*60)
     print("               PIPELINE RUN COMPLETED SUCCESSFULLY")

@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 def create_report_visualizations(combined_path, output_dir):
     df = pd.read_csv(combined_path)
@@ -14,7 +15,7 @@ def create_report_visualizations(combined_path, output_dir):
     # Chart 1: Alloy Distribution
     plt.figure(figsize=(6, 4))
     alloy_sales = df.groupby('Alloy_Type')['Quantity'].sum().reset_index().sort_values(by='Quantity', ascending=False)
-    sns.barplot(data=alloy_sales, x='Quantity', y='Alloy_Type', palette='viridis')
+    sns.barplot(data=alloy_sales, x='Quantity', y='Alloy_Type', hue='Alloy_Type', palette='viridis', legend=False)
     plt.title('Total Demand (Quantity) by Alloy Type', fontsize=12, fontweight='bold')
     plt.xlabel('Quantity Sold')
     plt.ylabel('')
@@ -70,16 +71,16 @@ class AlloyPDFReport(FPDF):
         self.rect(0, 0, 210, 35, 'F')
         self.set_text_color(255, 255, 255)
         self.set_font('Helvetica', 'B', 18)
-        self.cell(0, 5, 'INDUSTRIAL ALLOY DEMAND FORECASTING', ln=True, align='C')
+        self.cell(0, 5, 'INDUSTRIAL ALLOY DEMAND FORECASTING', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
         self.set_font('Helvetica', 'I', 11)
-        self.cell(0, 10, 'Executive Demand Planning & Sales Analytics Report', ln=True, align='C')
+        self.cell(0, 10, 'Executive Demand Planning & Sales Analytics Report', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
         self.ln(12)
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'Page {self.page_no()} | Confidential B2B Planning Report', 0, 0, 'C')
+        self.cell(0, 10, f'Page {self.page_no()} | Confidential B2B Planning Report', border=0, align='C')
 
 def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_report_path):
     # Setup visualization output directory
@@ -102,7 +103,7 @@ def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_rep
     # Section 1: Executive Summary
     pdf.set_text_color(24, 43, 73)
     pdf.set_font('Helvetica', 'B', 14)
-    pdf.cell(0, 8, '1. Executive Summary', ln=True)
+    pdf.cell(0, 8, '1. Executive Summary', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_fill_color(24, 43, 73)
     pdf.rect(15, pdf.get_y(), 180, 0.5, 'F') # Horizontal rule
     pdf.ln(3)
@@ -122,7 +123,7 @@ def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_rep
     # Section 2: Core Business Insights (Two Column layout concept)
     pdf.set_text_color(24, 43, 73)
     pdf.set_font('Helvetica', 'B', 14)
-    pdf.cell(0, 8, '2. Actionable Business Insights', ln=True)
+    pdf.cell(0, 8, '2. Actionable Business Insights', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.rect(15, pdf.get_y(), 180, 0.5, 'F')
     pdf.ln(3)
     
@@ -142,7 +143,7 @@ def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_rep
     
     pdf.set_text_color(24, 43, 73)
     pdf.set_font('Helvetica', 'B', 14)
-    pdf.cell(0, 8, '3. Sales Distribution & Seasonality Analysis', ln=True)
+    pdf.cell(0, 8, '3. Sales Distribution & Seasonality Analysis', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.rect(15, pdf.get_y(), 180, 0.5, 'F')
     pdf.ln(5)
     
@@ -160,7 +161,7 @@ def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_rep
     # Section 4: Model Evaluation
     pdf.set_text_color(24, 43, 73)
     pdf.set_font('Helvetica', 'B', 14)
-    pdf.cell(0, 8, '4. Model Evaluation & Comparison', ln=True)
+    pdf.cell(0, 8, '4. Model Evaluation & Comparison', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.rect(15, pdf.get_y(), 180, 0.5, 'F')
     pdf.ln(4)
     
@@ -170,9 +171,9 @@ def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_rep
     pdf.set_text_color(24, 43, 73)
     
     # Header cells
-    pdf.cell(45, 7, 'Metric', 1, 0, 'C', True)
-    pdf.cell(45, 7, 'Prophet Model', 1, 0, 'C', True)
-    pdf.cell(45, 7, 'XGBoost Model', 1, 1, 'C', True)
+    pdf.cell(45, 7, 'Metric', border=1, align='C', fill=True)
+    pdf.cell(45, 7, 'Prophet Model', border=1, align='C', fill=True)
+    pdf.cell(45, 7, 'XGBoost Model', border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C', fill=True)
     
     pdf.set_font('Helvetica', '', 10)
     pdf.set_text_color(50, 50, 50)
@@ -182,9 +183,9 @@ def build_pdf_report(combined_path, comparison_path, insights_text_path, pdf_rep
         p_val = f"{row['Prophet']:.2f}"
         x_val = f"{row['XGBoost']:.2f}"
         
-        pdf.cell(45, 7, metric, 1, 0, 'C')
-        pdf.cell(45, 7, p_val, 1, 0, 'C')
-        pdf.cell(45, 7, x_val, 1, 1, 'C')
+        pdf.cell(45, 7, metric, border=1, align='C')
+        pdf.cell(45, 7, p_val, border=1, align='C')
+        pdf.cell(45, 7, x_val, border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
         
     pdf.ln(6)
     

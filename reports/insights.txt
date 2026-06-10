@@ -1,8 +1,8 @@
 INDUSTRIAL ALLOY DEMAND FORECASTING - BUSINESS INSIGHTS
 ========================================================
 
-1. Top Selling Alloy: Alloy A (Aluminum) dominates demand, representing 26.0% of total quantity sold (13,869,081 units).
-2. Highest Revenue Region: The Western region generates the highest sales revenue ($292,400,000.40).
-3. Seasonal Peaks: High demand cycles detected in Q4. Fourth quarter (Q4) order volume is 16.1% higher than the average quarterly demand.
-4. B2B Purchasing Pattern: Daily transaction volume during weekdays is 299.7% higher than weekends, confirming standard industrial corporate purchasing cycles.
-5. Forecasting Accuracy: XGBoost model performs best for this dataset, achieving 31.1% lower Mean Absolute Error than the alternative model.
+1. Top Selling Alloy: Alloy A (Aluminum) dominates demand, representing 26.6% of total quantity sold (21,841,497 units).
+2. Highest Revenue Region: The Midwestern region generates the highest sales revenue ($451,124,497.26).
+3. Seasonal Peaks: High demand cycles detected in Q4. Fourth quarter (Q4) order volume is 14.2% higher than the average quarterly demand.
+4. B2B Purchasing Pattern: Daily transaction volume during weekdays is 301.8% higher than weekends, confirming standard industrial corporate purchasing cycles.
+5. Forecasting Accuracy: XGBoost model performs best for this dataset, achieving 28.7% lower Mean Absolute Error than the alternative model.
