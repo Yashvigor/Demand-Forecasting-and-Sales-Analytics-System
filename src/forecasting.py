@@ -139,3 +139,32 @@ def run_xgboost_forecast(df: pd.DataFrame, date_col: str = 'Order_Date', target_
     output_df['XGBoost_Forecast'] = output_df['XGBoost_Forecast'].clip(lower=0)
     
     return output_df, model, features
+
+
+def save_trained_models(prophet_models: dict, xgb_model: xgb.XGBRegressor, xgb_features: list, models_dir: str = 'models'):
+    """
+    Serializes and saves Prophet models, the XGBoost model, and its feature list.
+    """
+    import os
+    import pickle
+    import json
+    
+    os.makedirs(models_dir, exist_ok=True)
+    
+    # 1. Save Prophet Models (Pickle dictionary)
+    prophet_path = os.path.join(models_dir, 'prophet_models.pkl')
+    with open(prophet_path, 'wb') as f:
+        pickle.dump(prophet_models, f)
+    print(f"Saved Prophet models dictionary to {os.path.abspath(prophet_path)}")
+    
+    # 2. Save XGBoost Model (JSON)
+    xgb_path = os.path.join(models_dir, 'xgboost_model.json')
+    xgb_model.save_model(xgb_path)
+    print(f"Saved XGBoost model to {os.path.abspath(xgb_path)}")
+    
+    # 3. Save XGBoost Features list (JSON)
+    features_path = os.path.join(models_dir, 'xgboost_features.json')
+    with open(features_path, 'w') as f:
+        json.dump(xgb_features, f)
+    print(f"Saved XGBoost features list to {os.path.abspath(features_path)}")
+

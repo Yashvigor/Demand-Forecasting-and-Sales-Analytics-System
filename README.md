@@ -23,6 +23,10 @@ This system integrates:
 Industrial-Demand-Forecasting/
 ├── data/
 │   └── sales_data.csv             # Cleaned & processed alloy sales data
+├── models/
+│   ├── prophet_models.pkl         # Serialized Prophet models dictionary
+│   ├── xgboost_model.json         # Serialized XGBoost regressor model
+│   └── xgboost_features.json      # Feature column mapping for XGBoost
 ├── notebooks/
 │   ├── EDA.ipynb                  # Exploratory Data Analysis & Business Questions
 │   ├── Prophet_Model.ipynb        # Prophet Training & Forecasting Notebook
@@ -32,13 +36,12 @@ Industrial-Demand-Forecasting/
 │   ├── preprocessing.py           # Preprocessing and cleaning functions
 │   ├── feature_engineering.py     # Lags, rolling windows, and cyclical features
 │   ├── forecasting.py             # Model training pipelines (Prophet & XGBoost)
+│   ├── run_pipeline.py            # End-to-end forecasting pipeline orchestrator
 │   └── evaluation.py              # Performance evaluation & comparison metrics
-├── dashboard/
-│   └── DemandForecast.pbix        # Power BI Dashboard (template/saved report)
-├── reports/
-│   └── insights.pdf               # Automated Business PDF Insights Report
+├── app.py                         # Premium Streamlit Dashboard Application
 ├── requirements.txt               # Project dependency versions
 └── README.md                      # System documentation
+
 ```
 
 ---
@@ -94,3 +97,11 @@ Explore:
 * `notebooks/EDA.ipynb` for Exploratory Data Analysis.
 * `notebooks/Prophet_Model.ipynb` for Prophet modeling.
 * `notebooks/XGBoost_Model.ipynb` for XGBoost modeling.
+
+### 4. Run Streamlit Dashboard Web App
+To run the interactive B2B Sales and Forecasting dashboard:
+```bash
+streamlit run app.py
+```
+This will start the local server and launch the dashboard application in your default web browser (usually at `http://localhost:8501`).
+

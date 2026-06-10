@@ -3,7 +3,7 @@ import pandas as pd
 from data_loader import download_and_map_m5
 from preprocessing import clean_data
 from feature_engineering import generate_all_features
-from forecasting import run_prophet_forecast, run_xgboost_forecast
+from forecasting import run_prophet_forecast, run_xgboost_forecast, save_trained_models
 from evaluation import evaluate_forecasts, print_comparison_table
 
 def run_pipeline():
@@ -47,6 +47,10 @@ def run_pipeline():
     # Run XGBoost (test split = 90 days)
     print("Running global XGBoost model...")
     xgboost_results, xgb_model, xgb_features = run_xgboost_forecast(df_features, test_days=90)
+    
+    # Save models to disk
+    models_save_dir = os.path.join(base_dir, "models")
+    save_trained_models(prophet_models, xgb_model, xgb_features, models_save_dir)
     
     # 5. Merge Forecasts
     print("\n--- PHASE 5: MERGING FORECAST RESULTS ---")
